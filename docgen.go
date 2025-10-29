@@ -13,10 +13,9 @@ import (
 	"os"
 	//"go/ast"
 	//"reflect"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//v1 "k8s.io/api/core/v1"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
 
 
 var (
@@ -39,6 +38,8 @@ type Rule struct {
 	SuccessStates []string `marker:",optional"`
 	FailedStates []string `marker:",optional"`
 	FailureReason string `marker:",optional"`
+	HasInitContainer string `marker:",optional"`
+	HasVolume string `marker:",optional"`
 }
 
 
@@ -54,17 +55,27 @@ func (pd PodDocGenerator) Generate(ctx *genall.GenerationContext) error {
 
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("# %s\n\n", "POD CONDITION TESTS"))
-	template := "### Scenario: %s\n\n**PodSpec**:\n```sh\n%s\n```\n\n- For the above pod spec, pod successfully transitions to **%s** states\n- Fails to transition to **%s** states\n\n**Reason for failure**: %s\n"
+	template := "### Scenario: %s\n\n**PodSpec**:\n```sh\n%s\n```\n\n- For the above pod spec, pod successfully transitions to **%s** states\n"
+
+	templateFailure := "- Fails to transition to **%s** states\n\n**Reason for failure**: %s\n"
+
 
 	for _, root := range ctx.Roots {
 		markerSet, err := markers.PackageMarkers(ctx.Collector, root)
+		fmt.Println(markerSet)
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		for _, value := range markerSet[RuleDefinition.Name] {
 			rule := value.(Rule)
-			opvalue := fmt.Sprintf(template, rule.Scenario, podSpec(false), strings.Join(rule.SuccessStates, " -> "), strings.Join(rule.FailedStates, " ,"), rule.FailureReason)
+			var opvalue string
+			if len(rule.FailedStates) != 0 {
+				opvalue = fmt.Sprintf(template + templateFailure, rule.Scenario, podSpec(rule.HasInitContainer, rule.HasVolume), strings.Join(rule.SuccessStates, " -> "), strings.Join(rule.FailedStates, " ,"), rule.FailureReason)
+			} else {
+				opvalue = fmt.Sprintf(template + "\n\n", rule.Scenario, podSpec(rule.HasInitContainer, rule.HasVolume), strings.Join(rule.SuccessStates, " -> "))
+			}
+			
 			builder.WriteString(opvalue)
 			
         	err := os.WriteFile(pd.DocName, []byte(builder.String()), 0644)
@@ -179,7 +190,7 @@ func main() {
 	}
 
 }
-
+/*
 func podSpec(addInitContainer bool) string {
 	p := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -251,4 +262,56 @@ func podSpec(addInitContainer bool) string {
 "}\n"
 
 	return podSpecMarkdown
+}
+	*/
+
+
+func podSpec(addInitContainer string, addVolume string) string {
+
+	podSpecMarkdownBase := 
+"v1.PodSpec{\n" +
+"    Containers: []v1.Container{\n" +
+"        {\n" +
+"            Name:  \"<containerName>\",\n" +
+"            Image: \"<image>\",\n" +
+"            Args:  []string{\"test-webserver\"},\n" +
+"        },\n" +
+"    },\n"
+
+
+	podSpecMarkdownInitContainers := 
+"    InitContainers: []v1.Container{\n" +
+"        {\n" +
+"            Name:    \"<initContainerName>\",\n" +
+"            Image:   \"image2\",\n" +
+"            Command: []string{\"sh\", \"-c\", \"sleep 5s\"},\n" +
+"        },\n" +
+"    },\n" 
+
+
+	podSpecMarkdownVolumes := 
+"    Volumes: []v1.Volume{\n" +
+"        {\n" +
+"            Name: \"cm\",\n" +
+"            VolumeSource: v1.VolumeSource{\n" +
+"                ConfigMap: &v1.ConfigMapVolumeSource{\n" +
+"                    LocalObjectReference: v1.LocalObjectReference{Name: \"does-not-exist\"},\n" +
+"                },\n" +
+"            },\n" +
+"        },\n" +
+"    },\n" +
+"}\n"
+
+	podSpec := podSpecMarkdownBase
+	if addInitContainer == "true" {
+		podSpec = podSpec + podSpecMarkdownInitContainers
+		
+	}
+
+	if addVolume  == "true" {
+		podSpec = podSpec + podSpecMarkdownVolumes
+	}
+
+
+	return podSpec
 }

@@ -1,2 +1,5 @@
 package main
-// +docgenerator:pod:scenario=Pod fails to mount in case of missing volumes,successStates=PodScheduled;PodInitialized,failedStates=ContainersReady;PodReady,failureReason="MountVolume.SetUp failed for volume config-volume : configmap my-config not found"
+// +docgenerator:pod:scenario=Pod with no init containers fails to mount in case of missing volumes,successStates=PodScheduled;PodInitialized,failedStates=PodReadyToStartContainers;ContainersReady,failureReason="MountVolume.SetUp failed for volume config-volume : configmap my-config not found",hasInitContainer=false,hasVolume=true
+// +docgenerator:pod:scenario=Pod with init containers fails to mount in case of missing volumes,successStates=PodScheduled,failedStates=PodInitialized;PodReadyToStartContainers;ContainersReady,failureReason="MountVolume.SetUp failed for volume config-volume : configmap my-config not found",hasInitContainer=true,hasVolume=true
+// +docgenerator:pod:scenario=Running Pod with no init containers,successStates=PodScheduled;PodReadyToStartContainers;PodInitialized;ContainersReady;PodReady,hasInitContainer=false
+// +docgenerator:pod:scenario=Running Pod with init containers,successStates=PodScheduled;PodInitialized;PodReadyToStartContainers;ContainersReady;PodReady,hasInitContainer=true
